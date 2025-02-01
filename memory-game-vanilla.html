@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sıralı Hafıza Oyunu</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding: 15px;
+        }
+
+        .card {
+            aspect-ratio: 1;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin: 0;
+            width: 100%;
+        }
+
+        .card.hidden-number {
+            background-color: #e9ecef;
+            color: #e9ecef;
+            border: 2px solid #dee2e6;
+        }
+
+        .card.revealed.player1 {
+            background-color: #0d6efd;
+            color: white;
+            border: none;
+        }
+
+        .card.revealed.player2 {
+            background-color: #fd7e14;
+            color: white;
+            border: none;
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 20px;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+        }
+
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+            padding: 10px;
+        }
+
+        .score-board {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .player-score {
+            text-align: center;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .player-score h4 {
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+        }
+
+        .player-score.player1 {
+            background-color: #cfe2ff;
+            color: #084298;
+        }
+
+        .player-score.player2 {
+            background-color: #ffe5d0;
+            color: #9a4d0f;
+        }
+
+        .current-player-indicator {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            display: inline-block;
+            margin: 10px 0;
+        }
+
+        .player1-turn {
+            background-color: #cfe2ff;
+            color: #084298;
+        }
+
+        .player2-turn {
+            background-color: #ffe5d0;
+            color: #9a4d0f;
+        }
+
+        @media (max-width: 576px) {
+            body {
+                padding: 10px;
+            }
+
+            .game-container {
+                padding: 15px;
+            }
+
+            .card {
+                font-size: 1.5rem;
+            }
+
+            .player-score h4 {
+                font-size: 1rem;
+            }
+
+            .game-grid {
+                gap: 8px;
+                padding: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1 class="text-center mb-3 h2">Sıralı Hafıza Oyunu</h1>
+        
+        <div class="score-board">
+            <div class="player-score player1">
+                <h4>Oyuncu 1</h4>
+                <p class="mb-0">Galibiyet: <span id="player1Score">0</span></p>
+            </div>
+            <div class="player-score player2">
+                <h4>Oyuncu 2</h4>
+                <p class="mb-0">Galibiyet: <span id="player2Score">0</span></p>
+            </div>
+        </div>
+
+        <div class="alert alert-info" role="alert" id="gameMessage">
+            Oyun başladı! Oyuncu 1 başlıyor.
+        </div>
+
+        <div class="text-center">
+            <span id="currentPlayer" class="current-player-indicator player1-turn">
+                Sıra: Oyuncu 1
+            </span>
+        </div>
+
+        <div class="game-grid" id="gameGrid"></div>
+
+        <div class="text-center">
+            <button class="btn btn-primary" id="newGameBtn" onclick="initializeGame()">Yeni Oyun</button>
+        </div>
+    </div>
+
+    <script>
+        // JavaScript kodları aynı kalacak, sadece CSS değişiklikleri yapıldı
+        let numbers = [];
+        let revealed = Array(9).fill(false);
+        let currentPlayer = 1;
+        let sequence = [];
+        let gameActive = true;
+        let player1Wins = 0;
+        let player2Wins = 0;
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function initializeGame() {
+            numbers = shuffleArray(Array.from({length: 9}, (_, i) => i + 1));
+            revealed = Array(9).fill(false);
+            currentPlayer = 1;
+            sequence = [];
+            gameActive = true;
+
+            const gameGrid = document.getElementById('gameGrid');
+            gameGrid.innerHTML = '';
+            
+            numbers.forEach((number, index) => {
+                const card = document.createElement('div');
+                card.className = 'card hidden-number';
+                card.textContent = 'X';
+                card.setAttribute('data-index', index);
+                card.onclick = () => handleCardClick(index);
+                gameGrid.appendChild(card);
+            });
+
+            updateGameMessage('Oyun başladı! Oyuncu 1 başlıyor.');
+            updateCurrentPlayer();
+        }
+
+        function handleCardClick(index) {
+            if (!gameActive || revealed[index]) return;
+
+            const clickedNumber = numbers[index];
+            revealed[index] = true;
+            sequence.push(clickedNumber);
+
+            updateCard(index, true);
+
+            const expectedNumber = sequence.length;
+            if (clickedNumber !== expectedNumber) {
+                gameActive = false;
+                setTimeout(() => {
+                    revealed.fill(false);
+                    sequence = [];
+                    currentPlayer = currentPlayer === 1 ? 2 : 1;
+                    revealed.forEach((_, i) => updateCard(i, false));
+                    updateGameMessage(`Yanlış sayı! Sıra Oyuncu ${currentPlayer}'e geçti.`);
+                    updateCurrentPlayer();
+                    gameActive = true;
+                }, 1000);
+            } else {
+                if (sequence.length === 9) {
+                    if (currentPlayer === 1) {
+                        player1Wins++;
+                        document.getElementById('player1Score').textContent = player1Wins;
+                    } else {
+                        player2Wins++;
+                        document.getElementById('player2Score').textContent = player2Wins;
+                    }
+
+                    if (player1Wins === 3 || player2Wins === 3) {
+                        updateGameMessage(`Oyun bitti! Oyuncu ${currentPlayer} maçı kazandı!`);
+                        player1Wins = 0;
+                        player2Wins = 0;
+                        document.getElementById('player1Score').textContent = '0';
+                        document.getElementById('player2Score').textContent = '0';
+                    } else {
+                        updateGameMessage(`Tebrikler! Oyuncu ${currentPlayer} bu eli kazandı! Yeni el başlıyor.`);
+                        setTimeout(initializeGame, 2000);
+                    }
+                    gameActive = false;
+                } else {
+                    updateGameMessage(`Doğru! Devam edin Oyuncu ${currentPlayer}`);
+                }
+            }
+        }
+
+        function updateCard(index, show) {
+            const card = document.querySelector(`[data-index="${index}"]`);
+            if (show) {
+                card.classList.remove('hidden-number');
+                card.classList.add('revealed');
+                card.classList.add(`player${currentPlayer}`);
+                card.textContent = numbers[index];
+            } else {
+                card.classList.add('hidden-number');
+                card.classList.remove('revealed');
+                card.classList.remove('player1');
+                card.classList.remove('player2');
+                card.textContent = 'X';
+            }
+        }
+
+        function updateGameMessage(message) {
+            document.getElementById('gameMessage').textContent = message;
+        }
+
+        function updateCurrentPlayer() {
+            const playerIndicator = document.getElementById('currentPlayer');
+            playerIndicator.textContent = `Sıra: Oyuncu ${currentPlayer}`;
+            playerIndicator.className = `current-player-indicator player${currentPlayer}-turn`;
+        }
+
+        initializeGame();
+    </script>
+</body>
+</html>
